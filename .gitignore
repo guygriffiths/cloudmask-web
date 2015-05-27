@@ -7,3 +7,7 @@ target/
 *.log
 .h2/
 
+# GWT-specific
+src/main/webapp/cloudmaskweb/
+src/main/webapp/WEB-INF/deploy
+gwt-unitCache/

@@ -37,6 +37,7 @@ import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.user.client.Random;
 import com.google.gwt.user.client.Window;
+import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.user.client.ui.RootLayoutPanel;
 import com.google.gwt.user.client.ui.VerticalPanel;
@@ -46,51 +47,30 @@ public class Html5ImageTest implements EntryPoint {
     @Override
     public void onModuleLoad() {
         RootLayoutPanel mainWindow = RootLayoutPanel.get();
-        final DataCanvas dc = new DataCanvas(500, 500);
+        final LinkedDataCanvas dc1 = new LinkedDataCanvas(500, 500);
         float[] data = new float[500*500];
         for (int i = 0; i < 500; i++) {
             for (int j = 0; j < 500; j++) {
-//                data[i+j*500] = (i+j);
-                data[i+j*500] = Random.nextInt();
+                data[i+j*500] = (i+j) / 50;
             }
         }
-        dc.setData(data);
-
-        VerticalPanel panel = new VerticalPanel();
+        dc1.setData(data);
         
-        PushButton zoomIn = new PushButton("zoom in");
-        zoomIn.addClickHandler(new ClickHandler() {
-            @Override
-            public void onClick(ClickEvent event) {
-                dc.zoomIn();
+        final LinkedDataCanvas dc2 = new LinkedDataCanvas(500, 500);
+        data = new float[500*500];
+        for (int i = 0; i < 500; i++) {
+            for (int j = 0; j < 500; j++) {
+                data[i+j*500] = (-j) / 100;
             }
-        });
-        PushButton zoomOut = new PushButton("zoom out");
-        zoomOut.addClickHandler(new ClickHandler() {
-            @Override
-            public void onClick(ClickEvent event) {
-                dc.zoomOut();
-            }
-        });
-        PushButton upButton = new PushButton("up");
-        upButton.addClickHandler(new ClickHandler() {
-            @Override
-            public void onClick(ClickEvent event) {
-                dc.moveUp();
-            }
-        });
-        PushButton downButton = new PushButton("down");
-        downButton.addClickHandler(new ClickHandler() {
-            @Override
-            public void onClick(ClickEvent event) {
-                dc.moveDown();
-            }
-        });
-        panel.add(dc.getCanvas());
-        panel.add(zoomIn);
-        panel.add(zoomOut);
-        panel.add(upButton);
-        panel.add(downButton);
+        }
+        dc2.setData(data);
+        
+        dc1.addLinkedView(dc2);
+
+        HorizontalPanel panel = new HorizontalPanel();
+        
+        panel.add(dc1.getCanvas());
+        panel.add(dc2.getCanvas());
         mainWindow.add(panel);
     }
 
