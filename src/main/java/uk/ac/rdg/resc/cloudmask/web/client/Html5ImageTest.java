@@ -28,17 +28,16 @@
 
 package uk.ac.rdg.resc.cloudmask.web.client;
 
+import org.spiffyui.client.widgets.slider.Slider;
+import org.spiffyui.client.widgets.slider.SliderEvent;
+import org.spiffyui.client.widgets.slider.SliderListener;
+
 import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.canvas.dom.client.Context2d;
 import com.google.gwt.canvas.dom.client.CssColor;
 import com.google.gwt.canvas.dom.client.ImageData;
 import com.google.gwt.core.client.EntryPoint;
-import com.google.gwt.event.dom.client.ClickEvent;
-import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.user.client.Random;
-import com.google.gwt.user.client.Window;
-import com.google.gwt.user.client.ui.HorizontalPanel;
-import com.google.gwt.user.client.ui.PushButton;
 import com.google.gwt.user.client.ui.RootLayoutPanel;
 import com.google.gwt.user.client.ui.VerticalPanel;
 
@@ -47,30 +46,56 @@ public class Html5ImageTest implements EntryPoint {
     @Override
     public void onModuleLoad() {
         RootLayoutPanel mainWindow = RootLayoutPanel.get();
-        final LinkedDataCanvas dc1 = new LinkedDataCanvas(500, 500);
-        float[] data = new float[500*500];
+        final DataCanvas dc1 = new DataCanvas(500, 500);
+        float[] data = new float[500 * 500];
         for (int i = 0; i < 500; i++) {
             for (int j = 0; j < 500; j++) {
-                data[i+j*500] = (i+j) / 50;
+                data[i + j * 500] = (i + j);// / 50;
             }
         }
-        dc1.setData(data);
-        
-        final LinkedDataCanvas dc2 = new LinkedDataCanvas(500, 500);
-        data = new float[500*500];
-        for (int i = 0; i < 500; i++) {
-            for (int j = 0; j < 500; j++) {
-                data[i+j*500] = (-j) / 100;
-            }
-        }
-        dc2.setData(data);
-        
-        dc1.addLinkedView(dc2);
+        dc1.setData(data, null, null);
 
-        HorizontalPanel panel = new HorizontalPanel();
-        
+//        final DataCanvas dc2 = new DataCanvas(500, 500);
+//        data = new float[500 * 500];
+//        for (int i = 0; i < 500; i++) {
+//            for (int j = 0; j < 500; j++) {
+//                data[i + j * 500] = (-j) / 100;
+//            }
+//        }
+//        dc2.setData(data, null, null);
+
+//        dc1.addLinkedView(dc2);
+
+        VerticalPanel panel = new VerticalPanel();
+
         panel.add(dc1.getCanvas());
-        panel.add(dc2.getCanvas());
+//        panel.add(dc2.getCanvas());
+
+        Slider threshold = new Slider("thresh", (int) dc1.getScaleMin() * 100-1,
+                (int) dc1.getScaleMax() * 100+1, new int[] { (int) dc1.getScaleMin() * 100,
+                        (int) dc1.getScaleMax() * 100});
+        threshold.addListener(new SliderListener() {
+            @Override
+            public void onStop(SliderEvent e) {
+            }
+            
+            @Override
+            public void onStart(SliderEvent e) {
+            }
+            
+            @Override
+            public boolean onSlide(SliderEvent e) {
+                return true;
+            }
+            
+            @Override
+            public void onChange(SliderEvent e) {
+                int[] values = e.getValues();
+                dc1.setThresholds(values[0] / 100.0f, values[1] / 100.0f);
+            }
+        });
+        panel.add(threshold);
+
         mainWindow.add(panel);
     }
 
@@ -84,8 +109,8 @@ public class Html5ImageTest implements EntryPoint {
         Context2d context2d = canvas.getContext2d();
         ImageData imageData = context2d.createImageData(width, height);
         int step = 16;
-        for (int i = 0; i < width; i+=step) {
-            for (int j = 0; j < height; j+=step) {
+        for (int i = 0; i < width; i += step) {
+            for (int j = 0; j < height; j += step) {
                 context2d.setFillStyle(CssColor.make(0, Random.nextInt(256), Random.nextInt(256)));
                 context2d.fillRect(i, j, step, step);
 //                imageData.setAlphaAt(255, i, j);

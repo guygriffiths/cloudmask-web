@@ -28,14 +28,9 @@
 
 package uk.ac.rdg.resc.cloudmask.web.client;
 
-import javax.swing.text.html.ImageView;
-
-import uk.ac.rdg.resc.edal.position.HorizontalPosition;
-
 import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.canvas.dom.client.Context2d;
 import com.google.gwt.canvas.dom.client.CssColor;
-import com.google.gwt.canvas.dom.client.FillStrokeStyle;
 import com.google.gwt.core.shared.GWT;
 import com.google.gwt.event.dom.client.MouseWheelEvent;
 import com.google.gwt.event.dom.client.MouseWheelHandler;
@@ -57,10 +52,30 @@ public class DataCanvas {
     private float scaleMin = Float.MAX_VALUE;
     private float scaleMax = -Float.MAX_VALUE;
 
+    private float thresholdMin = Float.MAX_VALUE;
+    private float thresholdMax = -Float.MAX_VALUE;
+
     private Canvas canvas;
 
     private ColourPalette palette = ColourPalette.fromString(ColourPalette.DEFAULT_PALETTE_NAME,
             250);
+
+    /** The minimum valid x co-ordinate for image generation */
+    private double minXBound;
+    /** The minimum valid y co-ordinate for image generation */
+    private double minYBound;
+    /** The maximum valid x co-ordinate for image generation */
+    private double maxXBound;
+    /** The maximum valid y co-ordinate for image generation */
+    private double maxYBound;
+    /** The current minimum visible x co-ordinate */
+    protected double minX;
+    /** The current minimum visible y co-ordinate */
+    protected double minY;
+    /** The current maximum visible x co-ordinate */
+    protected double maxX;
+    /** The current maximum visible y co-ordinate */
+    protected double maxY;
 
     public DataCanvas(int width, int height) {
         this.width = width;
@@ -75,16 +90,10 @@ public class DataCanvas {
             public void onMouseWheel(MouseWheelEvent event) {
                 int deltaY = event.getDeltaY();
                 if (deltaY > 0) {
-                    doZoom(false, event.getX() * canvas.getCoordinateSpaceWidth()
-                            / canvas.getCanvasElement().getClientWidth(), event.getClientY()
-                            * canvas.getCoordinateSpaceHeight()
-                            / canvas.getCanvasElement().getClientHeight());
+                    doZoom(false, event.getX(), event.getY());
                     draw();
                 } else if (deltaY < 0) {
-                    doZoom(true, event.getX() * canvas.getCoordinateSpaceWidth()
-                            / canvas.getCanvasElement().getClientWidth(), event.getClientY()
-                            * canvas.getCoordinateSpaceHeight()
-                            / canvas.getCanvasElement().getClientHeight());
+                    doZoom(true, event.getX(), event.getY());
                     draw();
                 }
             }
@@ -127,7 +136,7 @@ public class DataCanvas {
      * 
      * @param values
      */
-    public void setData(float[] values) {
+    public void setData(float[] values, Float thresholdMin, Float thresholdMax) {
         if (values.length != width * height) {
             throw new IllegalArgumentException("Can only accept an array of size " + width + "x"
                     + height);
@@ -144,29 +153,35 @@ public class DataCanvas {
                 scaleMax = v;
             }
         }
+        if (thresholdMin == null) {
+            this.thresholdMin = scaleMin;
+        } else {
+            this.thresholdMin = thresholdMin;
+        }
+        if (thresholdMax == null) {
+            this.thresholdMax = scaleMax;
+        } else {
+            this.thresholdMax = thresholdMax;
+        }
+        draw();
+    }
+    
+    public float getScaleMin() {
+        return scaleMin;
+    }
+    
+    public float getScaleMax() {
+        return scaleMax;
+    }
+    
+    public void setThresholds(float min, float max) {
+        thresholdMin = min;
+        thresholdMax = max;
         draw();
     }
 
     protected void draw() {
         Context2d context2d = canvas.getContext2d();
-
-//        for (int canvasI = 0, dataI = (width / 2) + xOff - (width / (2 * zoom)); canvasI < width; canvasI += zoom, dataI++) {
-//            for (int canvasJ = 0, dataJ = (height / 2) + yOff - (height / (2 * zoom)); canvasJ < height; canvasJ += zoom, dataJ++) {
-//                float value = data[dataI + dataJ * height];
-//                value = (value - scaleMin) / (scaleMax - scaleMin);
-//                try {
-//                    int[] c = palette.getColor(value);
-//                    context2d.setFillStyle(CssColor.make(c[0], c[1], c[2]));
-//                    context2d.fillRect(canvasI, canvasJ, zoom, zoom);
-//                } catch (IllegalArgumentException e) {
-//                    GWT.log("value " + value + "\n" + scaleMin + " -> " + scaleMax);
-//                    return;
-//                }
-//            }
-//        }
-
-        GWT.log("Drawing x :" + minX + " -> " + maxX);
-        GWT.log("Drawing y :" + minY + " -> " + maxY);
 
         context2d.setGlobalAlpha(1.0);
         context2d.setFillStyle(CssColor.make(0, 0, 0));
@@ -175,10 +190,10 @@ public class DataCanvas {
         for (double dataI = minX; dataI <= maxX; dataI++) {
             for (double dataJ = minY; dataJ <= maxY; dataJ++) {
                 float value = data[((int) dataI + (int) dataJ * height)];
-                value = (value - scaleMin) / (scaleMax - scaleMin);
+                float scaledValue = (value - scaleMin) / (scaleMax - scaleMin);
                 double[] coords = dataCoord2CanvasCoord(dataI + 0.5, dataJ + 0.5);
                 try {
-                    int[] c = palette.getColor(value);
+                    int[] c = palette.getColor(scaledValue);
                     context2d.setFillStyle(CssColor.make(c[0], c[1], c[2]));
                     /*
                      * This rectangle is a little big so that we don't get
@@ -186,21 +201,8 @@ public class DataCanvas {
                      * it's drawn
                      */
                     context2d.fillRect(coords[0], coords[1], zoom + 1, zoom + 1);
-                } catch (IllegalArgumentException e) {
-                    GWT.log("value " + value + "\n" + scaleMin + " -> " + scaleMax);
-                    return;
-                }
-            }
-        }
-
-        context2d.setGlobalAlpha(0.5);
-        context2d.setFillStyle(CssColor.make("rgba(0,0,0,0.25)"));
-        for (double dataI = minX; dataI <= maxX; dataI++) {
-            for (double dataJ = minY; dataJ <= maxY; dataJ++) {
-                float value = data[((int) dataI + (int) dataJ * height)];
-                double[] coords = dataCoord2CanvasCoord(dataI + 0.5, dataJ + 0.5);
-                try {
-                    if (value > 12.5) {
+                    if (value > thresholdMax || value < thresholdMin) {
+                        context2d.setFillStyle(CssColor.make("rgba(0,0,0,0.25)"));
                         context2d.fillRect(coords[0], coords[1], zoom + 1, zoom + 1);
                     }
                 } catch (IllegalArgumentException e) {
@@ -210,38 +212,17 @@ public class DataCanvas {
             }
         }
 
-//        for (int canvasI = 0, dataI = (int) minX; canvasI < width; canvasI += zoom, dataI++) {
-//            if(canvasI == 0 || canvasI == width-1) {
-//                GWT.log(canvasI+","+dataI);
-//            }
-//            for (int canvasJ = 0, dataJ = (int) minY; canvasJ < height; canvasJ += zoom, dataJ++) {
-//                float value = data[dataI + dataJ * height];
-//                value = (value - scaleMin) / (scaleMax - scaleMin);
-//                try {
-//                    int[] c = palette.getColor(value);
-//                    context2d.setFillStyle(CssColor.make(c[0], c[1], c[2]));
-//                    context2d.fillRect(canvasI, canvasJ, zoom, zoom);
-//                } catch (IllegalArgumentException e) {
-//                    GWT.log("value " + value + "\n" + scaleMin + " -> " + scaleMax);
-//                    return;
-//                }
-//            }
-//        }
-
-//        for (int canvasI = 0, dataI = xOff; canvasI < width; canvasI+=zoom, dataI++) {
-//            for (int canvasJ = 0, dataJ = yOff; canvasJ < height; canvasJ+=zoom, dataJ++) {
-//                float value = data[dataI+dataJ*height];
-//                value = (value - scaleMin) / (scaleMax - scaleMin); 
-//                try{
-//                    int[] c = palette.getColor(value);
-//                    context2d.setFillStyle(CssColor.make(c[0], c[1], c[2]));
-//                    context2d.fillRect(canvasI, canvasJ, zoom, zoom);
-//                } catch (IllegalArgumentException e) {
-//                    GWT.log("value "+value+"\n"+scaleMin+" -> "+scaleMax);
-//                    return;
-//                }
-//            }
-//        }
+        for (double dataI = minX; dataI <= maxX; dataI++) {
+            for (double dataJ = minY; dataJ <= maxY; dataJ++) {
+                float value = data[((int) dataI + (int) dataJ * height)];
+                double[] coords = dataCoord2CanvasCoord(dataI + 0.5, dataJ + 0.5);
+                try {
+                } catch (IllegalArgumentException e) {
+                    GWT.log("value " + value + "\n" + scaleMin + " -> " + scaleMax);
+                    return;
+                }
+            }
+        }
     }
 
     public double[] dataCoord2CanvasCoord(double x, double y) {
@@ -249,18 +230,6 @@ public class DataCanvas {
                 height * (1.0 - (y - minY) / (maxY - minY)) };
 //        return new double[]{minX + (maxX - minX) * (x / width), minY
 //                + (maxY - minY) * (1.0 - (y / height))};
-    }
-
-    public void zoomIn() {
-        if (zoom < width / 4)
-            zoom++;
-        draw();
-    }
-
-    public void zoomOut() {
-        if (zoom > 1)
-            zoom--;
-        draw();
     }
 
     public void moveUp() {
@@ -277,24 +246,6 @@ public class DataCanvas {
         return canvas;
     }
 
-    /** The minimum valid x co-ordinate for image generation */
-    private double minXBound;
-    /** The minimum valid y co-ordinate for image generation */
-    private double minYBound;
-    /** The maximum valid x co-ordinate for image generation */
-    private double maxXBound;
-    /** The maximum valid y co-ordinate for image generation */
-    private double maxYBound;
-
-    /** The current minimum visible x co-ordinate */
-    protected double minX;
-    /** The current minimum visible y co-ordinate */
-    protected double minY;
-    /** The current maximum visible x co-ordinate */
-    protected double maxX;
-    /** The current maximum visible y co-ordinate */
-    protected double maxY;
-
     /**
      * Updates appropriate variables to represent a zoom. Does not update the
      * image, just sets new limits
@@ -309,6 +260,13 @@ public class DataCanvas {
      */
     protected void doZoom(boolean in, double centreX, double centreY) {
         GWT.log("Zoom centre: " + centreX + "," + centreY);
+
+        centreX = centreX * canvas.getCoordinateSpaceWidth()
+                / canvas.getCanvasElement().getClientWidth();
+        centreY = canvas.getCoordinateSpaceHeight()
+                - (centreY * (canvas.getCoordinateSpaceHeight() / canvas.getCanvasElement()
+                        .getClientHeight()));
+
         double factor = 1.0;
         if (in) {
             zoom++;
@@ -317,15 +275,6 @@ public class DataCanvas {
             zoom--;
             factor = zoom / (zoom + 1.0);
         }
-//        zoom *= factor;
-//        if (zoom < 1) {
-//            zoom = 1;
-//            minX = 0;
-//            minY = 0;
-//            minX = width;
-//            minY = height;
-//            return;
-//        }
         /*
          * Convenient values
          */
