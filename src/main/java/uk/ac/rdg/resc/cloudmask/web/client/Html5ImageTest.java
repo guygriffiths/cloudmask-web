@@ -85,13 +85,13 @@ public class Html5ImageTest implements EntryPoint {
             
             @Override
             public boolean onSlide(SliderEvent e) {
+                int[] values = e.getValues();
+                dc1.setThresholds(values[0] / 100.0f, values[1] / 100.0f);
                 return true;
             }
             
             @Override
             public void onChange(SliderEvent e) {
-                int[] values = e.getValues();
-                dc1.setThresholds(values[0] / 100.0f, values[1] / 100.0f);
             }
         });
         panel.add(threshold);
